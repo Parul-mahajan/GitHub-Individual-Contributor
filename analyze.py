@@ -13,7 +13,7 @@ load_dotenv()
 
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 REPO_NAME = os.getenv("REPO_NAME")
-GITHUB_URL = os.getenv("GITHUB_URL", "http://github.cognizant.com") 
+GITHUB_URL = os.getenv("GITHUB_URL", "https://github.cognizant.com") 
 
 def get_yesterday_range():
     """Returns start and end timestamps for yesterday in CET timezone."""
