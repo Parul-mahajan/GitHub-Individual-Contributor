@@ -6,7 +6,6 @@ import pytz
 from github import Github
 from dotenv import load_dotenv
 import urllib3
-import ssl
 
 # Load environment variables from .env file
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -111,5 +110,9 @@ def main():
         if not commit_counts:
             print("No commits found for the given repository and date range.")
         else:
-            for author, count in sorted(commit_counts.items(), key=lambda x: x[1], reverse=True):
+            for author, commits in sorted(commit_counts.items(), key=lambda x: x[1], reverse=True):
                 print(f"\n👤 User: {author}")
+                print(f"   Commits: {commits}")
+                print(f"   Lines changed: {line_counts[author]}")
+    except Exception as e:
+        print(f"❌ Error analyzing commits: {e}")
