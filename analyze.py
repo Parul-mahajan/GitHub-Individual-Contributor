@@ -5,12 +5,16 @@ from collections import defaultdict
 import pytz
 from github import Github
 from dotenv import load_dotenv
+import urllib3
+import ssl
 
 # Load environment variables from .env file
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 load_dotenv()
 
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 REPO_NAME = os.getenv("REPO_NAME")
+GITHUB_URL = os.getenv("GITHUB_URL", "http://github.cognizant.com") 
 
 def get_yesterday_range():
     """Returns start and end timestamps for yesterday in CET timezone."""
@@ -35,7 +39,12 @@ def get_custom_range(start_date_str, end_date_str):
 
 def analyze_commits(start_date, end_date):
     """Fetches commits from the given repository within the provided date range and calculates per-user stats."""
-    g = Github(GITHUB_TOKEN)
+    g = Github(
+        base_url=f"{GITHUB_URL}/api/v3",
+        login_or_token=GITHUB_TOKEN,
+        verify=False,
+        timeout=30
+    )
     
     try:
         repo = g.get_repo(REPO_NAME)  # Format: "owner/repo"
