@@ -38,7 +38,7 @@ def get_custom_range(start_date_str, end_date_str):
         raise ValueError(f"Invalid date format. Expected YYYY-MM-DD. Error: {e}")
 
 def analyze_commits(start_date, end_date):
-    """Fetches commits from the given repository within the provided date range and calculates per-user stats."""
+    """Fetches commits from all branches within the provided date range and calculates per-user stats."""
     g = Github(
         base_url=f"{GITHUB_URL}/api/v3",
         login_or_token=GITHUB_TOKEN,
@@ -47,23 +47,40 @@ def analyze_commits(start_date, end_date):
     )
     
     try:
-        repo = g.get_repo(REPO_NAME)  # Format: "owner/repo"
+        repo = g.get_repo(REPO_NAME)
         commit_counts = defaultdict(int)
         line_counts = defaultdict(int)
+        branch_commits = defaultdict(list)
         
-        commits = repo.get_commits(since=start_date, until=end_date)
-        for commit in commits:
-            if commit.author:  # Ensure commit has an author
-                author_email = commit.commit.author.email
-                commit_counts[author_email] += 1
-
-                # Count lines changed (additions + deletions)
-                try:
-                    stats = commit.stats
-                    total_changes = stats.additions + stats.deletions
-                    line_counts[author_email] += total_changes
-                except Exception as e:
-                    print(f"⚠️ Error getting stats for commit {commit.sha} in {REPO_NAME}: {e}")
+        # Get all branches
+        branches = repo.get_branches()
+        print("\n🔍 Analyzing branches:")
+        
+        for branch in branches:
+            print(f"   📁 Processing branch: {branch.name}")
+            try:
+                commits = repo.get_commits(sha=branch.name, since=start_date, until=end_date)
+                for commit in commits:
+                    if commit.author:  # Ensure commit has an author
+                        author_email = commit.commit.author.email
+                        commit_sha = commit.sha
+                        
+                        # Only count commit if we haven't seen this SHA in other branches
+                        if commit_sha not in branch_commits[author_email]:
+                            commit_counts[author_email] += 1
+                            branch_commits[author_email].append(commit_sha)
+                            
+                            # Count lines changed
+                            try:
+                                stats = commit.stats
+                                total_changes = stats.additions + stats.deletions
+                                line_counts[author_email] += total_changes
+                            except Exception as e:
+                                print(f"⚠️ Error getting stats for commit {commit_sha} in branch {branch.name}: {e}")
+                                
+            except Exception as e:
+                print(f"⚠️ Error processing branch {branch.name}: {e}")
+                continue
 
         return commit_counts, line_counts
 
@@ -72,7 +89,7 @@ def analyze_commits(start_date, end_date):
         return {}, {}
 
 def main():
-    parser = argparse.ArgumentParser(description="Analyze GitHub commits within a date range.")
+    parser = argparse.ArgumentParser(description="Analyze GitHub commits across all branches within a date range.")
     parser.add_argument("--start_date", type=str, help="Start date in YYYY-MM-DD format")
     parser.add_argument("--end_date", type=str, help="End date in YYYY-MM-DD format")
     args = parser.parse_args()
@@ -96,11 +113,3 @@ def main():
         else:
             for author, count in sorted(commit_counts.items(), key=lambda x: x[1], reverse=True):
                 print(f"\n👤 User: {author}")
-                print(f"   📝 Number of commits: {commit_counts[author]}")
-                print(f"   📈 Lines of code changed: {line_counts[author]}")
-            
-    except Exception as e:
-        print(f"❌ Error during commit analysis: {e}")
-
-if __name__ == "__main__":
-    main()
