@@ -1,23 +1,55 @@
+import os
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
+from github import Github
+from collections import defaultdict
+import argparse
+from dotenv import load_dotenv
+import pytz
 
-# Update the environment variable to accept multiple repos
-REPO_NAMES = os.getenv("REPO_NAMES", "").split(",")  # Comma-separated list of repos
-GITHUB_URL = os.getenv("GITHUB_URL", "http://github.cognizant.com")
+# Load environment variables
+load_dotenv()
+
+# GitHub Enterprise Server configuration
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
+REPO_NAMES = [name.strip("'").strip() for name in os.getenv("REPO_NAMES", "").strip('"').split(",")]
+GITHUB_URL = "http://github.cognizant.com"  # Enterprise server URL
+
+def get_yesterday_range():
+    """Returns start and end timestamps for yesterday in CET timezone."""
+    cet = pytz.timezone('CET')
+    now = datetime.now(cet)
+    yesterday = now - timedelta(days=1)
+    start_date = yesterday.replace(hour=0, minute=0, second=0, microsecond=0)
+    end_date = yesterday.replace(hour=23, minute=59, second=59, microsecond=999999)
+    return start_date, end_date
+
+def get_custom_range(start_date_str, end_date_str):
+    """Parses the provided date strings and returns start and end timestamps in CET timezone."""
+    cet = pytz.timezone('CET')
+    try:
+        start_date = datetime.strptime(start_date_str, "%Y-%m-%d")
+        start_date = cet.localize(start_date.replace(hour=0, minute=0, second=0, microsecond=0))
+        end_date = datetime.strptime(end_date_str, "%Y-%m-%d")
+        end_date = cet.localize(end_date.replace(hour=23, minute=59, second=59, microsecond=999999))
+        return start_date, end_date
+    except Exception as e:
+        raise ValueError(f"Invalid date format. Expected YYYY-MM-DD. Error: {e}")
 
 def analyze_repos(start_date, end_date):
     """Analyzes commits across multiple repositories."""
+    # Initialize Github with Enterprise Server settings
     g = Github(
         base_url=f"{GITHUB_URL}/api/v3",
         login_or_token=GITHUB_TOKEN,
-        verify=False,
+        verify=False,  # Skip SSL verification for enterprise setup
         timeout=30
     )
     
     all_results = {}
     
     for repo_name in REPO_NAMES:
-        repo_name = repo_name.strip()  # Remove any whitespace
+        repo_name = repo_name.strip()
         print(f"\n📂 Analyzing repository: {repo_name}")
         
         try:
@@ -63,7 +95,6 @@ def analyze_repos(start_date, end_date):
 
 def export_to_excel(all_results, start_date, end_date):
     """Exports the analysis results to an Excel file."""
-    # Create a list to store all data
     data = []
     
     for repo_name, (commit_counts, line_counts) in all_results.items():
@@ -76,19 +107,12 @@ def export_to_excel(all_results, start_date, end_date):
                 'Analysis Period': f"{start_date.date()} to {end_date.date()}"
             })
     
-    # Create DataFrame
     df = pd.DataFrame(data)
-    
-    # Generate filename with timestamp
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"commit_analysis_{timestamp}.xlsx"
     
-    # Create Excel writer
     with pd.ExcelWriter(filename, engine='openpyxl') as writer:
-        # Write main data
         df.to_excel(writer, sheet_name='Commit Analysis', index=False)
-        
-        # Auto-adjust columns width
         worksheet = writer.sheets['Commit Analysis']
         for idx, col in enumerate(df.columns):
             max_length = max(
@@ -120,7 +144,6 @@ def main():
         print("\n📊 Commit Analysis Results (CET timezone):")
         print("=" * 50)
         
-        # Display results in console
         for repo_name, (commit_counts, line_counts) in all_results.items():
             print(f"\n📂 Repository: {repo_name}")
             print("-" * 40)
@@ -134,10 +157,8 @@ def main():
                 print(f"   Commits: {commits}")
                 print(f"   Lines changed: {line_counts[author]}")
         
-        # Export to Excel
         excel_file = export_to_excel(all_results, start_date, end_date)
-        print(f"\n✅ Results exported to: {excel_file}")
-                
+        print(f"\n✅ Results exported to: {excel_file}")                
     except Exception as e:
         print(f"❌ Error analyzing commits: {e}")
 
