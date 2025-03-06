@@ -13,7 +13,7 @@ load_dotenv()
 # GitHub Enterprise Server configuration
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 REPO_NAMES = [name.strip("'").strip() for name in os.getenv("REPO_NAMES", "").strip('"').split(",")]
-GITHUB_URL = "http://github.cognizant.com"  # Enterprise server URL
+GITHUB_URL = "https://github.cognizant.com"  # Enterprise server URL
 
 def get_yesterday_range():
     """Returns start and end timestamps for yesterday in CET timezone."""
