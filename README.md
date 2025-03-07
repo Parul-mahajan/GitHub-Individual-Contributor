@@ -86,3 +86,6 @@ The script includes error handling for:
 - Ensure your GitHub token has appropriate permissions to access the repository
 - All dates should be in YYYY-MM-DD format
 - The script uses CET timezone for calculations
+
+
+blah balh
