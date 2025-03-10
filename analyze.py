@@ -6,6 +6,12 @@ from collections import defaultdict
 import argparse
 from dotenv import load_dotenv
 import pytz
+import urllib3
+
+# added for GHEC
+from github import Github
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # Load environment variables
 load_dotenv()
@@ -57,7 +63,6 @@ def analyze_repos(start_date, end_date):
             commit_counts = defaultdict(int)
             line_counts = defaultdict(int)
             branch_commits = defaultdict(list)
-            
             branches = repo.get_branches()
             print(f"🔍 Found {sum(1 for _ in branches)} branches")
             
@@ -66,6 +71,9 @@ def analyze_repos(start_date, end_date):
                 try:
                     commits = repo.get_commits(sha=branch.name, since=start_date, until=end_date)
                     for commit in commits:
+                        if len(commit.parents) > 1:
+                                print(f"   ⏩ Skipping merge commit: {commit.sha[:7]}")
+                                continue
                         if commit.author:
                             author_email = commit.commit.author.email
                             commit_sha = commit.sha
@@ -164,3 +172,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
